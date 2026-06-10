@@ -1,8 +1,8 @@
 {
-	"name": "com.starbannergames.MYPACKAGE",
+	"name": "com.starbannergames.memento",
 	"version": "1.0.0",
-	"displayName": "SBG MYPACKAGE",
-	"description": "MY DESCRIPTION",
+	"displayName": "SBG Memento",
+	"description": "A binary Save System for Unity",
 	"unity": "6000.0",
 	"author": {
 		"name": "Star Banner Games",
