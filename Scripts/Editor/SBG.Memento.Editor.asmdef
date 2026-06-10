@@ -1,0 +1,18 @@
+{
+    "name": "SBG.Memento.Editor",
+    "rootNamespace": "",
+    "references": [
+        "GUID:7da2d5debc119814cb928964324e7031"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
