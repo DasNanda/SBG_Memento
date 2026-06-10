@@ -1,0 +1,12 @@
+{
+	"name": "com.starbannergames.MYPACKAGE",
+	"version": "1.0.0",
+	"displayName": "SBG MYPACKAGE",
+	"description": "MY DESCRIPTION",
+	"unity": "6000.0",
+	"author": {
+		"name": "Star Banner Games",
+		"email": "nanda@starbanner-games.com",
+		"url": ""
+	}
+}
