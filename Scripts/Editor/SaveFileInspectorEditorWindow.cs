@@ -11,6 +11,7 @@ namespace SBG.Memento.Editor
 	{
 		private readonly string[] seperators = new string[] {"/", "\\"};
 
+		private bool runtimeMode;
 		private string _path;
 		private string _filename;
 		private int _versionNr;
@@ -28,31 +29,48 @@ namespace SBG.Memento.Editor
 
         private void OnGUI()
 		{
-			if (GUILayout.Button("Select File", GUILayout.Height(25)))
-            {
-				string basePath = $"{Application.persistentDataPath}/Memento";
-				_path = EditorUtility.OpenFilePanel("Open Save File", basePath, "bin,st");
-				if (File.Exists(_path))
-                {
-					_cache = InternalProcessing.LoadFromBinaryFile(_path, out _versionNr);
-					_foldouts.Clear();
+			if (Application.isPlaying) DrawRuntimeGUI();
+			else DrawEditTimeGUI();
 
-					string[] pathChunks = _path.Split(seperators, StringSplitOptions.RemoveEmptyEntries);
-					_filename = pathChunks[pathChunks.Length - 1];
-				}
+            if (_cache == null) return;
+
+            EditorGUILayout.LabelField(_filename, EditorStyles.boldLabel);
+            EditorGUILayout.LabelField($"Version: {_versionNr}");
+            EditorGUILayout.LabelField($"Path: {_path}", EditorStyles.miniLabel);
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Save Data:", EditorStyles.boldLabel);
+            _scrollPos = EditorGUILayout.BeginScrollView(_scrollPos);
+            DisplaySubData(_cache);
+            EditorGUILayout.EndScrollView();
+        }
+
+		private void DrawRuntimeGUI()
+		{
+			if (!runtimeMode)
+			{
+				runtimeMode = true;
+				_cache = InternalProcessing.GetData(SaveType.GameFile);
 			}
-
-			if (_cache == null) return;
-
-			EditorGUILayout.LabelField(_filename, EditorStyles.boldLabel);
-			EditorGUILayout.LabelField($"Version: {_versionNr}");
-			EditorGUILayout.LabelField($"Path: {_path}", EditorStyles.miniLabel);
-			EditorGUILayout.Space();
-			EditorGUILayout.LabelField("Save Data:", EditorStyles.boldLabel);
-			_scrollPos = EditorGUILayout.BeginScrollView(_scrollPos);
-			DisplaySubData(_cache);
-			EditorGUILayout.EndScrollView();
 		}
+
+		private void DrawEditTimeGUI()
+		{
+			if (runtimeMode) runtimeMode = false;
+
+            if (GUILayout.Button("Select File", GUILayout.Height(25)))
+            {
+                string basePath = $"{Application.persistentDataPath}/Memento";
+                _path = EditorUtility.OpenFilePanel("Open Save File", basePath, "bin,st");
+                if (File.Exists(_path))
+                {
+                    _cache = InternalProcessing.LoadFromBinaryFile(_path, out _versionNr);
+                    _foldouts.Clear();
+
+                    string[] pathChunks = _path.Split(seperators, StringSplitOptions.RemoveEmptyEntries);
+                    _filename = pathChunks[pathChunks.Length - 1];
+                }
+            }
+        }
 
 		private void DisplaySubData(SaveData data)
         {

@@ -29,7 +29,7 @@ namespace SBG.Memento
         private static SaveData _gameData = new SaveData();
         private static SaveData _settingData = new SaveData();
 
-        private static SaveData GetData(SaveType type)
+        internal static SaveData GetData(SaveType type)
         {
             if (type == SaveType.Settings) return _settingData;
 

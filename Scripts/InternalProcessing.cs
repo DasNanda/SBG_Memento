@@ -15,6 +15,11 @@ namespace SBG.Memento
             return entry;
         }
 
+        public static SaveData GetData(SaveType type)
+        {
+            return SaveManager.GetData(type);
+        }
+
 		public static SaveData LoadFromBinaryFile(string path, out int versionNr)
         {
             string base64String = File.ReadAllText(path);
