@@ -12,35 +12,36 @@ namespace SBG.Memento.Editor
 		private readonly string[] seperators = new string[] {"/", "\\"};
 
 		private bool runtimeMode;
-		private string _path;
-		private string _filename;
-		private int _versionNr;
-		private SaveData _cache;
+		private string path;
+		private string filename;
+		private SaveData cache;
+		private string base64String;
 
-		private Vector2 _scrollPos = Vector2.zero;
-		private Dictionary<string, bool> _foldouts = new Dictionary<string, bool>();
+		private Vector2 scrollPos = Vector2.zero;
+		private Dictionary<string, bool> foldouts = new Dictionary<string, bool>();
 
 
-		[MenuItem("SBG/Memento/SaveFile Inspector")]
+		[MenuItem("SBG/Debugging/Savefile Debugger")]
 		public static void ShowWindow()
 		{
-			GetWindow<SaveFileInspectorEditorWindow>("SaveFile Inspector");
+			GetWindow<SaveFileInspectorEditorWindow>("Memento Savefile Debugger");
 		}
 
         private void OnGUI()
 		{
-			if (Application.isPlaying) DrawRuntimeGUI();
+            if (GUILayout.Button("Show Savefiles in Explorer", GUILayout.Height(30))) System.Diagnostics.Process.Start(Application.persistentDataPath);
+
+            if (Application.isPlaying) DrawRuntimeGUI();
 			else DrawEditTimeGUI();
 
-            if (_cache == null) return;
+            if (cache == null) return;
 
-            EditorGUILayout.LabelField(_filename, EditorStyles.boldLabel);
-            EditorGUILayout.LabelField($"Version: {_versionNr}");
-            EditorGUILayout.LabelField($"Path: {_path}", EditorStyles.miniLabel);
+            EditorGUILayout.LabelField(filename, EditorStyles.boldLabel);
+            EditorGUILayout.LabelField($"Path: {path}", EditorStyles.miniLabel);
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Save Data:", EditorStyles.boldLabel);
-            _scrollPos = EditorGUILayout.BeginScrollView(_scrollPos);
-            DisplaySubData(_cache);
+            scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
+            DisplaySubData(cache);
             EditorGUILayout.EndScrollView();
         }
 
@@ -49,8 +50,11 @@ namespace SBG.Memento.Editor
 			if (!runtimeMode)
 			{
 				runtimeMode = true;
-				_cache = InternalProcessing.GetData(SaveType.GameFile);
-			}
+				cache = InternalProcessing.GetData(SaveType.GameFile);
+                foldouts.Clear();
+                filename = "Runtime Data";
+                path = "-";
+            }
 		}
 
 		private void DrawEditTimeGUI()
@@ -60,15 +64,24 @@ namespace SBG.Memento.Editor
             if (GUILayout.Button("Select File", GUILayout.Height(25)))
             {
                 string basePath = $"{Application.persistentDataPath}/Memento";
-                _path = EditorUtility.OpenFilePanel("Open Save File", basePath, "bin,st");
-                if (File.Exists(_path))
+                path = EditorUtility.OpenFilePanel("Open Save File", basePath, "bin,st");
+                if (File.Exists(path))
                 {
-                    _cache = InternalProcessing.LoadFromBinaryFile(_path, out _versionNr);
-                    _foldouts.Clear();
+                    cache = InternalProcessing.LoadFromBinaryFile(path);
+                    foldouts.Clear();
 
-                    string[] pathChunks = _path.Split(seperators, StringSplitOptions.RemoveEmptyEntries);
-                    _filename = pathChunks[pathChunks.Length - 1];
+                    string[] pathChunks = path.Split(seperators, StringSplitOptions.RemoveEmptyEntries);
+                    filename = pathChunks[pathChunks.Length - 1];
                 }
+            }
+
+			base64String = EditorGUILayout.TextArea(base64String, GUILayout.MinHeight(50));
+			if (GUILayout.Button("Load from Base64 String", GUILayout.Height(25)))
+			{
+				cache = InternalProcessing.LoadFromBase64(base64String);
+                foldouts.Clear();
+				filename = "Generated Savefile";
+				path = "Base64";
             }
         }
 
@@ -93,10 +106,10 @@ namespace SBG.Memento.Editor
         {
 			if (entry is SaveData)
 			{
-				if (!_foldouts.ContainsKey(id)) _foldouts.Add(id, false);
-				_foldouts[id] = EditorGUILayout.Foldout(_foldouts[id], id);
+				if (!foldouts.ContainsKey(id)) foldouts.Add(id, false);
+				foldouts[id] = EditorGUILayout.Foldout(foldouts[id], id);
 
-				if (!_foldouts[id]) return;
+				if (!foldouts[id]) return;
 
 				EditorGUI.indentLevel++;
 				DisplaySubData(entry as SaveData);
@@ -120,10 +133,10 @@ namespace SBG.Memento.Editor
 
 		private void DisplayArray(string id, Array array)
         {
-			if (!_foldouts.ContainsKey(id)) _foldouts.Add(id, false);
-			_foldouts[id] = EditorGUILayout.Foldout(_foldouts[id], id);
+			if (!foldouts.ContainsKey(id)) foldouts.Add(id, false);
+			foldouts[id] = EditorGUILayout.Foldout(foldouts[id], id);
 
-			if (!_foldouts[id]) return;
+			if (!foldouts[id]) return;
 
 			EditorGUILayout.BeginVertical(EditorStyles.helpBox);
 			EditorGUI.indentLevel++;

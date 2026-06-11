@@ -8,18 +8,15 @@ namespace SBG.Memento
 	[Serializable]
 	internal struct SerializedSaveFile
 	{
-		public int VersionNr;
 		public SerializedData RootData;
 
-		public SerializedSaveFile(int version, SaveData root)
+		public SerializedSaveFile(SaveData root)
 		{
-			VersionNr = version;
 			RootData = new SerializedData(root);
 		}
 
-        public SerializedSaveFile(int version, SerializedData root)
+        public SerializedSaveFile(SerializedData root)
         {
-            VersionNr = version;
             RootData = root;
         }
 
@@ -31,7 +28,6 @@ namespace SBG.Memento
 			{
                 using (BinaryWriter writer = new BinaryWriter(stream, Encoding.UTF8, false))
                 {
-                    writer.Write(file.VersionNr);
                     WriteSubData(writer, file.RootData);
                 }
 
@@ -43,24 +39,24 @@ namespace SBG.Memento
 
 		public static SerializedSaveFile ReadFromBytes(byte[] bytes)
 		{
-			int versionNr = 0;
 			SerializedData rootData = new();
 
 			using (var stream = new MemoryStream(bytes))
 			{
 				using (BinaryReader reader = new BinaryReader(stream, Encoding.UTF8, false))
 				{
-                    versionNr = reader.ReadInt32();
                     rootData = ReadSubData(reader);
 				}
 			}
 
-			return new SerializedSaveFile(versionNr, rootData);
+			return new SerializedSaveFile(rootData);
 		}
 
 		private static void WriteSubData(BinaryWriter writer, SerializedData subData)
 		{
+            writer.Write(subData.Version);
 			writer.Write(subData.Data.Length);
+
 			foreach (var data in subData.Data)
 			{
 				writer.Write(data.Key);
@@ -79,8 +75,10 @@ namespace SBG.Memento
         private static SerializedData ReadSubData(BinaryReader reader)
         {
             SerializedData subData = new SerializedData();
+            ushort version = reader.ReadUInt16();
 			int length = reader.ReadInt32();
 
+            subData.Version = version;
             subData.Data = new SerializedDataEntry[length];
 
 			for (int i = 0; i < length; i++)

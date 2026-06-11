@@ -26,14 +26,14 @@ namespace SBG.Memento
         /// </summary>
         public static Action<SaveType> OnLoadFinished;
 
-        private static SaveData _gameData = new SaveData();
-        private static SaveData _settingData = new SaveData();
+        private static SaveData gameData = new SaveData();
+        private static SaveData settingData = new SaveData();
 
         internal static SaveData GetData(SaveType type)
         {
-            if (type == SaveType.Settings) return _settingData;
+            if (type == SaveType.Settings) return settingData;
 
-            return _gameData;
+            return gameData;
         }
 
         #endregion
@@ -75,7 +75,7 @@ namespace SBG.Memento
         public static double[] GetDoubleArray(string key, SaveType source = SaveType.GameFile) => GetData(source).GetDoubleArray(key);
         public static string[] GetStringArray(string key, SaveType source = SaveType.GameFile) => GetData(source).GetStringArray(key);
         public static bool[] GetBoolArray(string key, SaveType source = SaveType.GameFile) => GetData(source).GetBoolArray(key);
-        public static SaveData GetSubData(string key, SaveType source = SaveType.GameFile) => GetData(source).GetSubData(key);
+        public static SaveData GetSubData(string key, SaveType source = SaveType.GameFile, ushort minVersion=0, SaveDataVersionConverter converter=null) => GetData(source).GetSubData(key, minVersion, converter);
         public static SaveData[] GetSubDataArray(string key, SaveType source = SaveType.GameFile) => GetData(source).GetSubDataArray(key);
         public static Vector2 GetVector2(string key, SaveType source = SaveType.GameFile) => GetData(source).GetVector2(key);
         public static Vector2 GetVector2(string key, Vector2 defaultValue, SaveType source = SaveType.GameFile) => GetData(source).GetVector2(key, defaultValue);
@@ -92,11 +92,11 @@ namespace SBG.Memento
 
         public static string GetPath(string filename, SaveType saveType)
         {
-            string basePath = $"{Application.persistentDataPath}/Memento";
+            string basePath = $"{Application.persistentDataPath}/SaveFiles";
 
             if (!Directory.Exists(basePath)) Directory.CreateDirectory(basePath);
 
-            string end = saveType == SaveType.Settings ? "st" : "bin";
+            string end = saveType == SaveType.Settings ? "memset" : "mem";
 
             return $"{basePath}/{filename}.{end}";
         }
@@ -116,11 +116,11 @@ namespace SBG.Memento
         /// </summary>
         public static string[] GetAllSaveFiles(SaveType fileType = SaveType.GameFile)
         {
-            string baseDir = $"{Application.persistentDataPath}/Memento/";
+            string baseDir = $"{Application.persistentDataPath}/SaveFiles/";
 
             if (Directory.Exists(baseDir) == false) return null;
 
-            string end = fileType == SaveType.Settings ? "st" : "bin";
+            string end = fileType == SaveType.Settings ? "memset" : "mem";
 
             string[] paths = Directory.GetFiles(baseDir, $"*.{end}");
 
@@ -140,19 +140,23 @@ namespace SBG.Memento
         /// Saves the current Game Data using the given filename
         /// </summary>
         /// <returns>Returns true the Save was successful</returns>
-        public static bool SaveGame(string filename = DEFAULT_GAMEFILE) => Save(filename, SaveType.GameFile);
+        public static bool SaveGame(string filename = DEFAULT_GAMEFILE, ushort rootVersion = 0) => Save(filename, SaveType.GameFile, rootVersion);
         /// <summary>
         /// Saves the current Settings Data using the given filename
         /// </summary>
         /// <returns>Returns true the Save was successful</returns>
-        public static bool SaveSettings(string filename = DEFAULT_SETTINGFILE) => Save(filename, SaveType.Settings);
+        public static bool SaveSettings(string filename = DEFAULT_SETTINGFILE, ushort rootVersion = 0) => Save(filename, SaveType.Settings, rootVersion);
 
-        private static bool Save(string filename, SaveType saveContent)
+        private static bool Save(string filename, SaveType saveContent, ushort rootVersion = 0)
         {
             OnBeforeSave?.Invoke(saveContent);
 
             string path = GetPath(filename, saveContent);
-            var fileContent = new SerializedSaveFile(VersionControl.CURRENT_FILE_VERSION, GetData(saveContent));
+
+            var data = GetData(saveContent);
+            data.Version = rootVersion;
+
+            var fileContent = new SerializedSaveFile(data);
 
             return SaveToBinary(path, fileContent);
         }
@@ -162,15 +166,15 @@ namespace SBG.Memento
         /// Attempts to load Game Data into the cache from the given file.
         /// </summary>
         /// <returns>Returns true the Load was successful</returns>
-        public static bool LoadGame(string filename = DEFAULT_GAMEFILE) => Load(filename, SaveType.GameFile);
+        public static bool LoadGame(string filename = DEFAULT_GAMEFILE, ushort minRootVersion=0, SaveDataVersionConverter converter = null) => Load(filename, SaveType.GameFile, minRootVersion, converter);
         /// <summary>
         /// Attempts to load Settings Data into the cache from the given file.
         /// </summary>
         /// <returns>Returns true the Load was successful</returns>
-        public static bool LoadSettings(string filename = DEFAULT_SETTINGFILE) => Load(filename, SaveType.Settings);
+        public static bool LoadSettings(string filename = DEFAULT_SETTINGFILE, ushort minRootVersion = 0, SaveDataVersionConverter converter = null) => Load(filename, SaveType.Settings, minRootVersion, converter);
 
         
-        private static bool Load(string filename, SaveType loadContent)
+        private static bool Load(string filename, SaveType loadContent, ushort minRootVersion = 0, SaveDataVersionConverter converter = null)
         {
             string path = GetPath(filename, loadContent);
 
@@ -184,6 +188,13 @@ namespace SBG.Memento
 
             if (LoadFromBinary(path, loadContent))
             {
+                SaveData data = GetData(loadContent);
+
+                if (!SaveData.IsNullOrEmpty(data) && data.Version < minRootVersion)
+                {
+                    data = converter?.Invoke(data, data.Version, minRootVersion);
+                }
+
                 OnLoadFinished?.Invoke(loadContent);
                 return true;
             }
@@ -221,8 +232,8 @@ namespace SBG.Memento
 
         private static void ClearData(SaveType fileType)
         {
-            if (fileType == SaveType.Settings) _settingData = new SaveData();
-            else _gameData = new SaveData();
+            if (fileType == SaveType.Settings) settingData = new SaveData();
+            else gameData = new SaveData();
         }
 
         #endregion
@@ -255,23 +266,16 @@ namespace SBG.Memento
         {
             string base64Text = File.ReadAllText(path);
             byte[] byteData = Convert.FromBase64String(base64Text);
-            
+
+            // Wipe data in case anything doesnt load correctly later on
+            ClearData(fileType);
+
             try
             {
                 var fileContent = SerializedSaveFile.ReadFromBytes(byteData);
 
-                //Check File Version Compatibility
-                if (fileContent.VersionNr < VersionControl.MIN_FILE_VERSION)
-                {
-#if UNITY_EDITOR
-                    Debug.Log("MEMENTO: Save File is outdated!");
-#endif
-                    ClearData(fileType);
-                    return false;
-                }
-
-                if (fileType == SaveType.GameFile) _gameData = fileContent.RootData.Deserialize();
-                else _settingData = fileContent.RootData.Deserialize();
+                if (fileType == SaveType.GameFile) gameData = fileContent.RootData.Deserialize();
+                else settingData = fileContent.RootData.Deserialize();
 
                 return true;
             }

@@ -5,16 +5,30 @@ using UnityEngine;
 namespace SBG.Memento
 {
     /// <summary>
-    /// Memento saves Files using a SaveData objects.
+    /// Memento saves Files using SaveData objects.
     /// If you need to create sub packages of data, you can create your own SaveData objects to feed back into the SaveManager.
     /// This can be useful when you have a lot of repeating data, e.g: Npc's that all have the same variables to save.
     /// </summary>
 	public class SaveData
 	{
+        public ushort Version = 0;
+
 		private Hashtable _valueTable = new Hashtable();
 
         /// <returns>A list of the Keys of all saved values</returns>
 		public ArrayList GetKeys() => new ArrayList(_valueTable.Keys);
+        public int EntryCount => _valueTable.Count;
+
+        public SaveData(ushort versionNr=0)
+        {
+            this.Version = versionNr;
+        }
+
+        public static bool IsNullOrEmpty(SaveData data)
+        {
+            if (data == null || data.EntryCount == 0) return true;
+            return false;
+        }
 
         #region SET VALUES
 
@@ -106,13 +120,17 @@ namespace SBG.Memento
         public bool[] GetBoolArray(string key) => (bool[])GetValueFromTable(key, null);
 
         //NESTED DATA
-        public SaveData GetSubData(string key)
+        public SaveData GetSubData(string key, ushort minVersion=0, SaveDataVersionConverter converter = null)
         {
-            object data = GetValueFromTable(key, null);
+            object serializedData = GetValueFromTable(key, null);
 
-            if (data == null) return null;
+            if (serializedData == null) return null;
 
-            return ((SerializedData)data).Deserialize();
+            SaveData data = ((SerializedData)serializedData).Deserialize();
+
+            if (data.Version >= minVersion) return data;
+
+            return converter?.Invoke(data, data.Version, minVersion);
         }
 
         public SaveData[] GetSubDataArray(string key)
@@ -184,11 +202,6 @@ namespace SBG.Memento
             {
                 return defaultValue;
             }
-        }
-
-        public object GetSubDataArray(object inventory)
-        {
-            throw new NotImplementedException();
         }
 
         #endregion

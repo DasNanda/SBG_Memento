@@ -20,25 +20,21 @@ namespace SBG.Memento
             return SaveManager.GetData(type);
         }
 
-		public static SaveData LoadFromBinaryFile(string path, out int versionNr)
+		public static SaveData LoadFromBinaryFile(string path)
         {
             string base64String = File.ReadAllText(path);
+            return LoadFromBase64(base64String);
+        }
+
+        public static SaveData LoadFromBase64(string base64String)
+        {
+            if (string.IsNullOrEmpty(base64String)) return null;
+
             byte[] byteData = Convert.FromBase64String(base64String);
 
             try
             {
-                var fileContent = SerializedSaveFile.ReadFromBytes(byteData); 
-
-                versionNr = fileContent.VersionNr;
-
-                //Check File Version Compatibility
-                if (fileContent.VersionNr < VersionControl.MIN_FILE_VERSION)
-                {
-#if UNITY_EDITOR
-                    Debug.Log("MEMENTO: Save File is outdated!");
-#endif
-                    return null;
-                }
+                var fileContent = SerializedSaveFile.ReadFromBytes(byteData);
 
                 return fileContent.RootData.Deserialize();
             }
@@ -51,7 +47,6 @@ namespace SBG.Memento
             catch
             {
 #endif
-                versionNr = -1;
                 return null;
             }
         }

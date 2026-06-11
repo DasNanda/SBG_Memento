@@ -4,10 +4,13 @@ namespace SBG.Memento
 	[System.Serializable]
 	internal struct SerializedData
 	{
+		public ushort Version;
 		public SerializedDataEntry[] Data;
 
 		public SerializedData(SaveData data)
 		{
+			Version = data.Version;
+
 			var keys = data.GetKeys();
 
 			Data = new SerializedDataEntry[keys.Count];
@@ -21,7 +24,7 @@ namespace SBG.Memento
 
 		public SaveData Deserialize()
         {
-			SaveData saveData = new SaveData();
+			SaveData saveData = new SaveData(Version);
 
             foreach (var entry in Data)
             {
